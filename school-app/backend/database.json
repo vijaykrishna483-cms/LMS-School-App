@@ -1,0 +1,13 @@
+{
+  "dev": {
+    "driver": "pg",
+    "host": "dpg-d51pgp76s9ss73ersijg-a.oregon-postgres.render.com",
+    "port": 5432,
+    "user": "postgresadmin",
+    "password": "DADgpYQ5DfXWS2GIpC7BPhTuBvpZiIs9",
+    "database": "schooldb_zc9p",
+    "ssl": {
+      "rejectUnauthorized": false
+    }
+  }
+}

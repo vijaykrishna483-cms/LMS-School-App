@@ -7,9 +7,9 @@
   "scripts": {
     "dev": "node scripts/setup.js && nodemon backend/index.js",
     "start": "node backend/index.js",
-    "migrate:up": "node-pg-migrate up",
-    "migrate:down": "node-pg-migrate down",
-    "migrate:create": "node-pg-migrate create"
+   "migrate": "DATABASE_URL=$DATABASE_URL node-pg-migrate up",
+    "migrate:down": "DATABASE_URL=$DATABASE_URL node-pg-migrate down",
+    "migrate:create": "DATABASE_URL=$DATABASE_URL node-pg-migrate create"
   },
   "keywords": [],
   "author": "",

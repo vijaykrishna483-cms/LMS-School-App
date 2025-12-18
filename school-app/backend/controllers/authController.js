@@ -170,9 +170,9 @@ export const getMe = asyncHandler(async (req, res, next) => {
 
 // Student Registration
 export const registerStudent = asyncHandler(async (req, res, next) => {
-  const { username, password, full_name, roll_no, class_id } = req.body;
+  const { username, password, full_name, roll_no } = req.body;
 
-  if (!username || !password || !full_name || !roll_no || !class_id) {
+  if (!username || !password || !full_name || !roll_no ) {
     return next(new AppError('All fields are required', 400));
   }
 
@@ -191,8 +191,8 @@ export const registerStudent = asyncHandler(async (req, res, next) => {
 
   // Insert student
   const result = await pool.query(
-    'INSERT INTO students (username, password_hash, full_name, roll_no, class_id) VALUES ($1, $2, $3, $4, $5) RETURNING student_id, username, full_name, roll_no, class_id',
-    [username, hashedPassword, full_name, roll_no, class_id]
+    'INSERT INTO students (username, password_hash, full_name, roll_no) VALUES ($1, $2, $3, $4) RETURNING student_id, username, full_name, roll_no',
+    [username, hashedPassword, full_name, roll_no]
   );
 
   const student = result.rows[0];
@@ -264,5 +264,9 @@ export const loginStudent = asyncHandler(async (req, res, next) => {
   });
 });
 
+
+
+
+// Add this to your classController.js file
 
 

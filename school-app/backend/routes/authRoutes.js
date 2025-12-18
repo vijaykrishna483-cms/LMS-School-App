@@ -18,6 +18,7 @@ router.post('/teacher/login', loginTeacher);
 router.post('/student/register', registerStudent);
 router.post('/student/login', loginStudent);
 
+
 // Get current user (protected route)
 router.get('/me', authenticateToken, getMe);
 

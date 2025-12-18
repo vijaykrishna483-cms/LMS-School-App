@@ -11,7 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '../components/Header';
 import { COLORS } from '../constants/colors';
 
-const BASE_URL = 'http://169.254.121.159:8000/api/v1';
+const BASE_URL = 'https://lms-school-app.onrender.com/api/v1';
 
 const StudentExamDetailsScreen = ({ navigation, route }) => {
   const { examId, examName } = route.params || {};

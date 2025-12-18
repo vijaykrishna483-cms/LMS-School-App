@@ -7,17 +7,21 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   TextInput,
+  Modal,
+  Alert,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '../components/Header';
 import { COLORS } from '../constants/colors';
 
-const BASE_URL = 'http://169.254.121.159:8000/api/v1';
+const BASE_URL = 'https://lms-school-app.onrender.com/api/v1';
 
 const ViewGradesScreen = ({ navigation }) => {
   const [classes, setClasses] = useState([]);
   const [exams, setExams] = useState([]);
+  const [subjects, setSubjects] = useState([]);
   const [rankList, setRankList] = useState([]);
 
   const [selectedClass, setSelectedClass] = useState(null);
@@ -26,8 +30,20 @@ const ViewGradesScreen = ({ navigation }) => {
 
   // Search and Sort States
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState('rank'); // 'rank', 'name', 'marks'
-  const [sortOrder, setSortOrder] = useState('asc'); // 'asc', 'desc'
+  const [sortBy, setSortBy] = useState('rank');
+  const [sortOrder, setSortOrder] = useState('asc');
+
+  // Create Exam Modal States
+  const [showCreateExamModal, setShowCreateExamModal] = useState(false);
+  const [newExamName, setNewExamName] = useState('');
+  const [newExamMaxMarks, setNewExamMaxMarks] = useState('');
+  const [newExamGradeScale, setNewExamGradeScale] = useState('');
+  const [creatingExam, setCreatingExam] = useState(false);
+
+  // Create Subject Modal States
+  const [showCreateSubjectModal, setShowCreateSubjectModal] = useState(false);
+  const [newSubjectName, setNewSubjectName] = useState('');
+  const [creatingSubject, setCreatingSubject] = useState(false);
 
   const getToken = async () => AsyncStorage.getItem('userToken');
 
@@ -67,6 +83,19 @@ const ViewGradesScreen = ({ navigation }) => {
     }
   };
 
+  const loadSubjects = async (classId) => {
+    try {
+      const token = await getToken();
+      const res = await fetch(`${BASE_URL}/subjects/class/${classId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      setSubjects(json.data || []);
+    } catch (error) {
+      console.error('Error loading subjects:', error);
+    }
+  };
+
   const loadRankList = async (examId) => {
     setLoading(true);
     try {
@@ -84,11 +113,114 @@ const ViewGradesScreen = ({ navigation }) => {
     }
   };
 
+  // Create Exam Handler
+  const handleCreateExam = async () => {
+    if (!newExamName.trim() || !newExamMaxMarks.trim()) {
+      Alert.alert('Error', 'Please fill in exam name and max marks');
+      return;
+    }
+
+    if (!selectedClass) {
+      Alert.alert('Error', 'Please select a class first');
+      return;
+    }
+
+    const maxMarks = parseInt(newExamMaxMarks);
+    if (isNaN(maxMarks) || maxMarks <= 0) {
+      Alert.alert('Error', 'Max marks must be a positive number');
+      return;
+    }
+
+    try {
+      setCreatingExam(true);
+      const token = await getToken();
+
+      const response = await fetch(`${BASE_URL}/exams`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          exam_name: newExamName.trim(),
+          class_id: selectedClass.class_id,
+          max_marks: maxMarks,
+          grade_scale: newExamGradeScale.trim() || null,
+        }),
+      });
+
+      const json = await response.json();
+
+      if (!response.ok) {
+        throw new Error(json.message || 'Failed to create exam');
+      }
+
+      Alert.alert('Success', 'Exam created successfully!');
+      
+      setNewExamName('');
+      setNewExamMaxMarks('');
+      setNewExamGradeScale('');
+      setShowCreateExamModal(false);
+
+      loadExams(selectedClass.class_id);
+    } catch (error) {
+      Alert.alert('Error', error.message || 'Failed to create exam');
+    } finally {
+      setCreatingExam(false);
+    }
+  };
+
+  // Create Subject Handler
+  const handleCreateSubject = async () => {
+    if (!newSubjectName.trim()) {
+      Alert.alert('Error', 'Please enter subject name');
+      return;
+    }
+
+    if (!selectedClass) {
+      Alert.alert('Error', 'Please select a class first');
+      return;
+    }
+
+    try {
+      setCreatingSubject(true);
+      const token = await getToken();
+
+      const response = await fetch(`${BASE_URL}/subjects`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          subject_name: newSubjectName.trim(),
+          class_id: selectedClass.class_id,
+        }),
+      });
+
+      const json = await response.json();
+
+      if (!response.ok) {
+        throw new Error(json.message || 'Failed to create subject');
+      }
+
+      Alert.alert('Success', 'Subject created successfully!');
+      
+      setNewSubjectName('');
+      setShowCreateSubjectModal(false);
+
+      loadSubjects(selectedClass.class_id);
+    } catch (error) {
+      Alert.alert('Error', error.message || 'Failed to create subject');
+    } finally {
+      setCreatingSubject(false);
+    }
+  };
+
   // Filter and Sort Logic
   const filteredAndSortedData = useMemo(() => {
     let filtered = [...rankList];
 
-    // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -99,7 +231,6 @@ const ViewGradesScreen = ({ navigation }) => {
       );
     }
 
-    // Apply sorting
     filtered.sort((a, b) => {
       let compareValue = 0;
 
@@ -108,7 +239,6 @@ const ViewGradesScreen = ({ navigation }) => {
       } else if (sortBy === 'marks') {
         compareValue = a.total_marks - b.total_marks;
       } else {
-        // Default rank sorting (by index in original array)
         const aIndex = rankList.indexOf(a);
         const bIndex = rankList.indexOf(b);
         compareValue = aIndex - bIndex;
@@ -142,7 +272,6 @@ const ViewGradesScreen = ({ navigation }) => {
 
     return (
       <View style={styles.rankCard}>
-        {/* Rank Badge */}
         <View style={styles.rankBadgeContainer}>
           {medal ? (
             <View style={[styles.medalBadge, { backgroundColor: medal.bg }]}>
@@ -155,7 +284,6 @@ const ViewGradesScreen = ({ navigation }) => {
           )}
         </View>
 
-        {/* Student Info */}
         <View style={styles.studentInfo}>
           <Text style={styles.studentName}>{item.student_name}</Text>
           <View style={styles.studentMeta}>
@@ -166,13 +294,11 @@ const ViewGradesScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Marks Badge */}
         <View style={styles.marksContainer}>
           <Text style={styles.marksValue}>{item.total_marks}</Text>
           <Text style={styles.marksLabel}>marks</Text>
         </View>
 
-        {/* Percentage Badge */}
         {item.percentage && (
           <View style={styles.percentageBadge}>
             <Text style={styles.percentageText}>{item.percentage}%</Text>
@@ -212,9 +338,11 @@ const ViewGradesScreen = ({ navigation }) => {
       <View style={styles.selectorSection}>
         {/* Class Selector */}
         <View style={styles.selectorRow}>
-          <Text style={styles.selectorLabel}>
-            <Ionicons name="school-outline" size={16} color={COLORS.primary} /> Class
-          </Text>
+          <View style={styles.selectorHeader}>
+            <Text style={styles.selectorLabel}>
+              <Ionicons name="school-outline" size={16} color={COLORS.primary} /> Class
+            </Text>
+          </View>
           <FlatList
             data={classes}
             horizontal
@@ -232,6 +360,7 @@ const ViewGradesScreen = ({ navigation }) => {
                   setRankList([]);
                   setSearchQuery('');
                   loadExams(item.class_id);
+                  loadSubjects(item.class_id);
                 }}
               >
                 <Text
@@ -248,13 +377,55 @@ const ViewGradesScreen = ({ navigation }) => {
           />
         </View>
 
+        {/* Subjects Section */}
+        {selectedClass && (
+          <View style={styles.selectorRow}>
+            <View style={styles.selectorHeader}>
+              <Text style={styles.selectorLabel}>
+                <Ionicons name="book-outline" size={16} color={COLORS.primary} /> Subjects
+              </Text>
+              <TouchableOpacity
+                style={styles.createButton}
+                onPress={() => setShowCreateSubjectModal(true)}
+              >
+                <Ionicons name="add-circle" size={20} color={COLORS.primary} />
+                <Text style={styles.createButtonText}>Add</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.chipList}
+            >
+              {subjects.length > 0 ? (
+                subjects.map((subject) => (
+                  <View key={subject.subject_id} style={styles.subjectChip}>
+                    <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+                    <Text style={styles.subjectChipText}>{subject.subject_name}</Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.emptyExamText}>No subjects yet. Add one!</Text>
+              )}
+            </ScrollView>
+          </View>
+        )}
+
         {/* Exam Selector */}
         {selectedClass && (
           <View style={styles.selectorRow}>
-            <Text style={styles.selectorLabel}>
-              <Ionicons name="document-text-outline" size={16} color={COLORS.primary} />{' '}
-              Exam
-            </Text>
+            <View style={styles.selectorHeader}>
+              <Text style={styles.selectorLabel}>
+                <Ionicons name="document-text-outline" size={16} color={COLORS.primary} /> Exam
+              </Text>
+              <TouchableOpacity
+                style={styles.createButton}
+                onPress={() => setShowCreateExamModal(true)}
+              >
+                <Ionicons name="add-circle" size={20} color={COLORS.primary} />
+                <Text style={styles.createButtonText}>Create</Text>
+              </TouchableOpacity>
+            </View>
             <FlatList
               data={exams}
               horizontal
@@ -282,6 +453,9 @@ const ViewGradesScreen = ({ navigation }) => {
                 </TouchableOpacity>
               )}
               contentContainerStyle={styles.chipList}
+              ListEmptyComponent={
+                <Text style={styles.emptyExamText}>No exams yet. Create one!</Text>
+              }
             />
           </View>
         )}
@@ -296,9 +470,7 @@ const ViewGradesScreen = ({ navigation }) => {
             {rankList[0] && (
               <View style={styles.summaryItem}>
                 <Ionicons name="trophy" size={20} color="#f59e0b" />
-                <Text style={styles.summaryText}>
-                  Top: {rankList[0].total_marks} marks
-                </Text>
+                <Text style={styles.summaryText}>Top: {rankList[0].total_marks} marks</Text>
               </View>
             )}
           </View>
@@ -308,7 +480,6 @@ const ViewGradesScreen = ({ navigation }) => {
       {/* Search and Sort Section */}
       {selectedExam && rankList.length > 0 && (
         <View style={styles.searchSortSection}>
-          {/* Search Bar */}
           <View style={styles.searchContainer}>
             <Ionicons name="search" size={20} color={COLORS.textLight} />
             <TextInput
@@ -325,18 +496,12 @@ const ViewGradesScreen = ({ navigation }) => {
             )}
           </View>
 
-          {/* Sort Controls */}
           <View style={styles.sortContainer}>
             <TouchableOpacity
               style={[styles.sortButton, sortBy === 'rank' && styles.sortButtonActive]}
               onPress={() => toggleSort('rank')}
             >
-              <Text
-                style={[
-                  styles.sortButtonText,
-                  sortBy === 'rank' && styles.sortButtonTextActive,
-                ]}
-              >
+              <Text style={[styles.sortButtonText, sortBy === 'rank' && styles.sortButtonTextActive]}>
                 Rank
               </Text>
               {sortBy === 'rank' && (
@@ -352,12 +517,7 @@ const ViewGradesScreen = ({ navigation }) => {
               style={[styles.sortButton, sortBy === 'name' && styles.sortButtonActive]}
               onPress={() => toggleSort('name')}
             >
-              <Text
-                style={[
-                  styles.sortButtonText,
-                  sortBy === 'name' && styles.sortButtonTextActive,
-                ]}
-              >
+              <Text style={[styles.sortButtonText, sortBy === 'name' && styles.sortButtonTextActive]}>
                 Name
               </Text>
               {sortBy === 'name' && (
@@ -373,12 +533,7 @@ const ViewGradesScreen = ({ navigation }) => {
               style={[styles.sortButton, sortBy === 'marks' && styles.sortButtonActive]}
               onPress={() => toggleSort('marks')}
             >
-              <Text
-                style={[
-                  styles.sortButtonText,
-                  sortBy === 'marks' && styles.sortButtonTextActive,
-                ]}
-              >
+              <Text style={[styles.sortButtonText, sortBy === 'marks' && styles.sortButtonTextActive]}>
                 Marks
               </Text>
               {sortBy === 'marks' && (
@@ -411,6 +566,157 @@ const ViewGradesScreen = ({ navigation }) => {
           />
         )}
       </View>
+
+      {/* Create Exam Modal */}
+      <Modal
+        visible={showCreateExamModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowCreateExamModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Create New Exam</Text>
+              <TouchableOpacity onPress={() => setShowCreateExamModal(false)}>
+                <Ionicons name="close" size={28} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              <View style={styles.classInfo}>
+                <Ionicons name="school" size={20} color={COLORS.primary} />
+                <Text style={styles.classInfoText}>
+                  Class: {selectedClass?.class_name}-{selectedClass?.section_name}
+                </Text>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Exam Name *</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="e.g., Mid Term, Final Exam"
+                  value={newExamName}
+                  onChangeText={setNewExamName}
+                  placeholderTextColor={COLORS.textLight}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Maximum Marks *</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="e.g., 100"
+                  value={newExamMaxMarks}
+                  onChangeText={setNewExamMaxMarks}
+                  keyboardType="numeric"
+                  placeholderTextColor={COLORS.textLight}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Grade Scale (Optional)</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="e.g., A+, A, B+, B..."
+                  value={newExamGradeScale}
+                  onChangeText={setNewExamGradeScale}
+                  placeholderTextColor={COLORS.textLight}
+                />
+              </View>
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => {
+                    setShowCreateExamModal(false);
+                    setNewExamName('');
+                    setNewExamMaxMarks('');
+                    setNewExamGradeScale('');
+                  }}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.createButtonFilled}
+                  onPress={handleCreateExam}
+                  disabled={creatingExam}
+                >
+                  {creatingExam ? (
+                    <ActivityIndicator size="small" color={COLORS.white} />
+                  ) : (
+                    <Text style={styles.createButtonFilledText}>Create Exam</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Create Subject Modal */}
+      <Modal
+        visible={showCreateSubjectModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowCreateSubjectModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Add New Subject</Text>
+              <TouchableOpacity onPress={() => setShowCreateSubjectModal(false)}>
+                <Ionicons name="close" size={28} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              <View style={styles.classInfo}>
+                <Ionicons name="school" size={20} color={COLORS.primary} />
+                <Text style={styles.classInfoText}>
+                  Class: {selectedClass?.class_name}-{selectedClass?.section_name}
+                </Text>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Subject Name *</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="e.g., Mathematics, Physics, English"
+                  value={newSubjectName}
+                  onChangeText={setNewSubjectName}
+                  placeholderTextColor={COLORS.textLight}
+                />
+              </View>
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => {
+                    setShowCreateSubjectModal(false);
+                    setNewSubjectName('');
+                  }}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.createButtonFilled}
+                  onPress={handleCreateSubject}
+                  disabled={creatingSubject}
+                >
+                  {creatingSubject ? (
+                    <ActivityIndicator size="small" color={COLORS.white} />
+                  ) : (
+                    <Text style={styles.createButtonFilledText}>Add Subject</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -431,12 +737,33 @@ const styles = StyleSheet.create({
   selectorRow: {
     marginBottom: 12,
   },
+  selectorHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+    paddingHorizontal: 16,
+  },
   selectorLabel: {
     fontSize: 14,
     fontWeight: '600',
     color: COLORS.text,
-    marginBottom: 8,
-    marginLeft: 16,
+  },
+  createButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: '#f0f9ff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+  },
+  createButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.primary,
   },
   chipList: {
     paddingHorizontal: 16,
@@ -461,6 +788,29 @@ const styles = StyleSheet.create({
   },
   chipTextActive: {
     color: COLORS.white,
+  },
+  subjectChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    backgroundColor: '#dcfce7',
+    borderWidth: 1,
+    borderColor: '#10b981',
+    marginRight: 10,
+  },
+  subjectChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#065f46',
+  },
+  emptyExamText: {
+    fontSize: 13,
+    color: COLORS.textLight,
+    fontStyle: 'italic',
+    paddingHorizontal: 4,
   },
   summaryHeader: {
     flexDirection: 'row',
@@ -553,9 +903,11 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
+
   rankBadgeContainer: {
     marginRight: 12,
   },
+
   medalBadge: {
     width: 52,
     height: 52,
@@ -563,6 +915,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+
   rankNumberBadge: {
     width: 52,
     height: 52,
@@ -573,70 +926,84 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: COLORS.border,
   },
+
   rankNumber: {
     fontSize: 18,
     fontWeight: '800',
     color: COLORS.primary,
   },
+
   studentInfo: {
     flex: 1,
   },
+
   studentName: {
     fontSize: 16,
     fontWeight: '700',
     color: COLORS.text,
     marginBottom: 6,
   },
+
   studentMeta: {
     flexDirection: 'row',
     gap: 12,
   },
+
   metaItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
+
   metaText: {
     fontSize: 13,
     color: COLORS.textLight,
     fontWeight: '500',
   },
+
   marksContainer: {
     alignItems: 'center',
     marginRight: 8,
   },
+
   marksValue: {
     fontSize: 24,
     fontWeight: '800',
     color: COLORS.primary,
   },
+
   marksLabel: {
     fontSize: 11,
     color: COLORS.textLight,
     fontWeight: '600',
   },
+
   percentageBadge: {
     backgroundColor: '#dcfce7',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,
   },
+
   percentageText: {
     fontSize: 13,
     fontWeight: '700',
     color: '#10b981',
   },
+
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingTop: 60,
   },
+
   loadingText: {
     marginTop: 12,
     fontSize: 15,
     color: COLORS.textLight,
   },
+
   emptyState: {
     flex: 1,
     justifyContent: 'center',
@@ -644,9 +1011,11 @@ const styles = StyleSheet.create({
     paddingTop: 80,
     paddingHorizontal: 40,
   },
+
   emptyIconContainer: {
     marginBottom: 20,
   },
+
   emptyTitle: {
     fontSize: 22,
     fontWeight: '700',
@@ -654,10 +1023,116 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textAlign: 'center',
   },
+
   emptySubtitle: {
     fontSize: 15,
     color: COLORS.textLight,
     textAlign: 'center',
     lineHeight: 22,
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+
+  modalContent: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '85%',
+  },
+
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+
+  modalBody: {
+    padding: 20,
+  },
+
+  classInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    backgroundColor: '#f0f9ff',
+    borderRadius: 12,
+    marginBottom: 20,
+  },
+
+  classInfoText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+
+  inputGroup: {
+    marginBottom: 16,
+  },
+
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 8,
+  },
+
+  modalInput: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 15,
+    color: COLORS.text,
+    backgroundColor: COLORS.background,
+  },
+
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 24,
+  },
+
+  cancelButton: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: COLORS.background,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+  },
+
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+
+  createButtonFilled: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+  },
+
+  createButtonFilledText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.white,
   },
 });

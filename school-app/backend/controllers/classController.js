@@ -146,3 +146,37 @@ export const getTeacherClasses = asyncHandler(async (req, res, next) => {
     },
   });
 });
+
+
+
+
+
+export const assignStudentsToClass = asyncHandler(async (req, res, next) => {
+  const { class_id, student_ids } = req.body;
+
+  if (!class_id || !student_ids || !Array.isArray(student_ids) || student_ids.length === 0) {
+    return next(new AppError('Class ID and student IDs array are required', 400));
+  }
+
+  // Check if class exists
+  const classCheck = await pool.query(
+    'SELECT class_id FROM classes WHERE class_id = $1',
+    [class_id]
+  );
+
+  if (classCheck.rows.length === 0) {
+    return next(new AppError('Class not found', 404));
+  }
+
+  // Assign students to class
+  const result = await pool.query(
+    'UPDATE students SET class_id = $1 WHERE student_id = ANY($2::int[]) RETURNING *',
+    [class_id, student_ids]
+  );
+
+  res.status(200).json({
+    status: 'success',
+    message: `${result.rows.length} student(s) assigned to class`,
+    data: result.rows,
+  });
+});

@@ -11,7 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS } from '../constants/colors';
 
-const BASE_URL = 'http://169.254.121.159:8000/api/v1';
+const BASE_URL = 'https://lms-school-app.onrender.com/api/v1';
 
 const SetMarksByClassScreen = ({ route, navigation }) => {
   const { classId, className, sectionName } = route.params;

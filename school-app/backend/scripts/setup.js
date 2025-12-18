@@ -10,8 +10,13 @@ async function setup() {
   try {
     console.log('🔧 Running database migrations...');
     
-    // Run migrations
-    const { stdout, stderr } = await execPromise('npx node-pg-migrate up');
+    // Run migrations - Windows compatible
+    const { stdout, stderr } = await execPromise('npx node-pg-migrate up', {
+      env: {
+        ...process.env,
+        DATABASE_URL: process.env.DATABASE_URL
+      }
+    });
     
     if (stdout) console.log(stdout);
     if (stderr) console.error(stderr);
@@ -19,6 +24,7 @@ async function setup() {
     console.log('✅ Database setup complete!');
   } catch (error) {
     console.error('❌ Migration failed:', error.message);
+    console.error(error);
     // Don't exit - let the server start anyway
   }
 }

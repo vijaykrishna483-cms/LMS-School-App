@@ -4,10 +4,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /** CONFIG — change PC_IP / PORT if needed while on device */
 const PORT = '8000';
-const PC_IP = '169.254.121.159';
+const PC_IP = '10.89.108.237';
 export const BASE_URL = Platform.OS === 'android'
-  ? `http://169.254.121.159:${PORT}/api/v1`
-  : `http://${PC_IP}:${PORT}/api/v1`;
+  ? `https://lms-school-app.onrender.com/api/v1`
+  : `https://lms-school-app.onrender.com/api/v1`;
 
 // Debug toggle
 const logBase = true;

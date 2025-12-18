@@ -68,10 +68,7 @@ const [classId, setClassId] = useState(null);
         Alert.alert('Error', 'Please enter roll number');
         return false;
       }
-      if (!classId) {
-        Alert.alert('Error', 'Please select a class');
-        return false;
-      }
+ 
     }
     return true;
   };
@@ -104,7 +101,7 @@ const [classId, setClassId] = useState(null);
           password,
           full_name: fullName,
           roll_no: rollNo,
-class_id: classId,
+// class_id: classId,
         });
         
         Alert.alert(
@@ -225,33 +222,7 @@ class_id: classId,
               />
             </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Class</Text>
-              {loadingClasses ? (
-                <View style={styles.input}>
-                  <ActivityIndicator color={COLORS.primary} />
-                </View>
-              ) : (
-                <View style={styles.pickerContainer}>
-                  <Picker
-                    selectedValue={classId}
-                    onValueChange={setClassId}
-                    enabled={!loading}
-                    style={styles.picker}
-                  >
-                    <Picker.Item label="Select a class" value="" />
-                    {classes.map((cls) => (
-  <Picker.Item
-    key={cls.class_id}
-    label={`${cls.class_name} ${cls.section_name}`}
-    value={cls.class_id}   // ❌ no toString
-  />
-))}
-
-                  </Picker>
-                </View>
-              )}
-            </View>
+         
           </>
         )}
 

@@ -15,7 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../constants/colors';
 import Header from '../components/Header';
 
-const BASE_URL = 'http://169.254.121.159:8000/api/v1';
+const BASE_URL = 'https://lms-school-app.onrender.com/api/v1';
 
 const AttendanceScreen = ({ navigation }) => {
   const [classes, setClasses] = useState([]);
